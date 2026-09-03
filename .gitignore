@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 가상환경
+venv/
+.venv/
+env/
+
+# 색인 산출물 — build_index.py 로 재생성됨
+index/
+
+# 감사 로그 — 실행 중 생성됨 (개인정보가 섞일 수 있어 커밋하지 않음)
+logs/
+
+# 에디터 / 도구 설정
+.vscode/
+.claude/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
