@@ -6,8 +6,11 @@ from src.store import load_index, search
 BASE = os.path.dirname(os.path.abspath(__file__))
 INDEX_DIR = os.path.join(BASE, "..", "index")
 MODEL = "qwen2.5:7b"          # 여기만 바꾸면 모델 교체
-# 규정 QA는 같은 질문에 늘 같은 답이 나와야 한다 → 샘플링 끔
-OPTIONS = {"temperature": 0}
+# temperature: 규정 QA는 같은 질문에 늘 같은 답이 나와야 한다 → 샘플링 끔
+# num_ctx  : Ollama 기본값은 4096이라 (모델 학습 길이 32768과 무관) 조항이 길면
+#            프롬프트가 잘린다. 잘리는 영역에 규정 컨텍스트와 [코드 계산 결과]가
+#            있어서 할루시네이션 방지 장치가 먼저 무력화된다 → 8192로 상향.
+OPTIONS = {"temperature": 0, "num_ctx": 8192}
 
 SYSTEM = (
     "너는 회사 규정 안내 도우미다. "
