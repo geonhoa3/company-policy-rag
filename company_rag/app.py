@@ -60,7 +60,9 @@ if q := st.chat_input("예: 연차 며칠 쓸 수 있어?"):
         # 2) 출처 원문 — 펼쳐서 직접 검증
         with st.expander(f"📎 근거 조항 원문 (최고 유사도 {top_score:.2f})"):
             for c, score in hits:
-                st.markdown(f"**{c['chapter']} · 제{c['article_no']}조 ({c['article_title']})** — 유사도 {score:.2f}")
+                # 긴 조는 항 단위로 쪼개지므로 몇 번째 조각인지 같이 표기
+                part = f" [{c['part']}/{c['n_parts']}]" if c.get("n_parts", 1) > 1 else ""
+                st.markdown(f"**{c['chapter']} · 제{c['article_no']}조 ({c['article_title']}){part}** — 유사도 {score:.2f}")
                 st.text(c["text"])
         if sq != q:
             st.caption(f"검색용 재작성: {sq}")

@@ -4,6 +4,12 @@ import re
 # 패턴 두 개 (이게 경계 감지의 핵심)
 ARTICLE_RE = re.compile(r"^제(\d+)조\s*\((.+?)\)")   # 제5조 (수습기간)
 CHAPTER_RE = re.compile(r"^(제\d+장.*|부칙)")          # 제2장 채용... / 부칙
+CLAUSE_RE  = re.compile(r"^(\d+)\.\s")               # 항: "1. 1년간 80% 이상..."
+
+# 조 단위 청킹은 길이 상한이 없다. 조항이 길면 ① 임베딩이 평균값으로 뭉개져
+# 검색 정확도가 떨어지고 ② 프롬프트(num_ctx)를 밀어내 규정 컨텍스트가 잘린다.
+# 이 길이를 넘는 조만 항 단위로 쪼갠다. 샘플 취업규칙은 최장 240자라 해당 없음.
+MAX_CHARS = 800
 
 def chunk_by_article(paragraphs: list[str]) -> list[dict]:
     chunks = []
@@ -48,3 +54,58 @@ def chunk_by_article(paragraphs: list[str]) -> list[dict]:
     if current:
         chunks.append(current)
     return chunks
+
+
+def _clause_units(body: list[str]) -> list[list[str]]:
+    """본문 줄들을 항 단위 덩어리로 묶는다.
+
+    항 번호가 없는 줄(표 행, 이어지는 문장 등)은 직전 항에 붙여서
+    항이 중간에 끊기지 않게 한다.
+    """
+    units: list[list[str]] = []
+    for line in body:
+        if CLAUSE_RE.match(line) or not units:
+            units.append([line])
+        else:
+            units[-1].append(line)
+    return units
+
+
+def split_long_articles(chunks: list[dict], max_chars: int = MAX_CHARS) -> list[dict]:
+    """길이 상한을 넘는 조를 항 단위로 나눈다. 짧은 조는 그대로 둔다.
+
+    항을 중간에 자르지 않고, 상한에 닿을 때까지 묶어 담는다(greedy packing).
+    조각마다 조 헤딩을 복제하므로 (제N조) 출처 표기가 그대로 유지된다.
+
+    항 하나가 단독으로 상한을 넘으면 더 쪼개지 않고 그대로 둔다 — 문장 중간을
+    자르면 검색 품질이 더 나빠지기 때문. 이런 청크는 build_index.py 가 경고한다.
+    """
+    out: list[dict] = []
+
+    for c in chunks:
+        lines = c["text"].split("\n")
+        heading, body = lines[0], lines[1:]
+
+        if len(c["text"]) <= max_chars or not body:
+            out.append({**c, "part": 1, "n_parts": 1})
+            continue
+
+        groups: list[list[str]] = []
+        cur: list[str] = []
+        for unit in _clause_units(body):
+            block = "\n".join(unit)
+            candidate = heading + "\n" + "\n".join(cur + [block])
+            if cur and len(candidate) > max_chars:
+                groups.append(cur)
+                cur = []
+            cur.append(block)
+        if cur:
+            groups.append(cur)
+
+        for i, g in enumerate(groups, 1):
+            out.append({**c,
+                        "text": heading + "\n" + "\n".join(g),
+                        "part": i,
+                        "n_parts": len(groups)})
+
+    return out
