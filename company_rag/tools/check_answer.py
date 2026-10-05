@@ -7,8 +7,11 @@ def check():
     from src.answer import answer
 
     # 1) 규정 안 질문 — 사실 정확 + 출처 표기
+    #    "입사 1년차"처럼 모호하게 물으면 모델이 제12조 2항(1개월당 1일)으로 읽어
+    #    "1일"이라 답하는데 그것도 맞는 해석이다. 1항(15일)을 검증하려는 테스트이므로
+    #    조건을 질문에 명시해 해석의 여지를 없앤다.
     try:
-        text, hits = answer("입사 1년차 연차 휴가 며칠 쓸 수 있어?")
+        text, hits = answer("1년간 80% 이상 출근한 근로자는 연차 휴가 며칠 쓸 수 있어?")
     except Exception as e:
         print("❌ Ollama 연결 실패 가능 — 아래 확인:")
         print("   1) Ollama 설치 후 실행 중인지  2) 'ollama pull qwen2.5:7b' 했는지")
