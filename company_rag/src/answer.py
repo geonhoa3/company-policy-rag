@@ -6,6 +6,18 @@ from src.store import load_index, search
 BASE = os.path.dirname(os.path.abspath(__file__))
 INDEX_DIR = os.path.join(BASE, "..", "index")
 MODEL = "qwen2.5:7b"          # 여기만 바꾸면 모델 교체
+
+# 근거가 약하면 답을 '생성하기 전에' 멈춘다.
+# 틀린 답보다 유보가 안전하다는 판단 — 사규 안내는 오답의 비용이 크다.
+# 0.5 는 실측 분포에서 두 집단이 갈리는 지점:
+#   규정 안 질문 0.655~0.746 / 규정 밖 질문 0.390~0.484
+CONF_THRESHOLD = 0.5
+NO_EVIDENCE = "규정에 없습니다. (근거 조항을 찾지 못해 답변을 생성하지 않았습니다)"
+
+
+def _withhold(hits) -> bool:
+    """최고 유사도가 임계값에 못 미치면 생성을 건너뛴다."""
+    return (hits[0][1] if hits else 0.0) < CONF_THRESHOLD
 # temperature: 규정 QA는 같은 질문에 늘 같은 답이 나와야 한다 → 샘플링 끔
 # num_ctx  : Ollama 기본값은 4096이라 (모델 학습 길이 32768과 무관) 조항이 길면
 #            프롬프트가 잘린다. 잘리는 영역에 규정 컨텍스트와 [코드 계산 결과]가
@@ -38,6 +50,8 @@ def _load():
 def answer(query: str, k: int = 3):
     chunks, vecs = _load()
     hits = search(query, chunks, vecs, k=k)     # 슬롯4 재사용
+    if _withhold(hits):                         # 근거 부족 → LLM 호출 자체를 안 한다
+        return NO_EVIDENCE, hits
     # TODO) hits 로 '규정' 컨텍스트 문자열 만들기
     #  힌트: "\n\n".join(c["text"] for c, score in hits)
     context = "\n\n".join(c["text"] for c, score in hits)
@@ -68,6 +82,8 @@ def answer_with_history(question: str, history: list[dict], k: int = 3, extra_co
     chunks, vecs = _load()
     search_query = condense_query(question, history)   # 검색용 독립 질문
     hits = search(search_query, chunks, vecs, k=k)
+    if _withhold(hits):                         # 근거 부족 → LLM 호출 자체를 안 한다
+        return NO_EVIDENCE, hits, search_query
     context = "\n\n".join(c["text"] for c, _ in hits)
 
     # 코드가 미리 계산한 사실(예: 연차 일수)을 근거로 주입. LLM은 이 숫자를 그대로 쓴다.

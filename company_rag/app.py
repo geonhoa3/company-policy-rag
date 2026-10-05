@@ -1,11 +1,9 @@
 # app.py — Streamlit 웹 UI (실행: streamlit run app.py)
 import streamlit as st
-from src.answer import answer_with_history
+from src.answer import answer_with_history, CONF_THRESHOLD
 from src.leave import leave_days, extract_hire_date
 from src.audit import log_turn
 from src.store import EXACT_SCORE
-
-CONF_THRESHOLD = 0.5   # 최고 유사도가 이보다 낮으면 신뢰도 경고
 
 st.set_page_config(page_title="회사 규정 QA", page_icon="📖")
 st.title("📖 회사 규정 QA")
@@ -52,9 +50,10 @@ if q := st.chat_input("예: 연차 며칠 쓸 수 있어?"):
 
         top_score = hits[0][1] if hits else 0.0
 
-        # 1) 신뢰도 경고 — 근거가 약하면 맹신 금지
+        # 1) 신뢰도 가드 — 근거가 약하면 답을 '생성하지 않고' 유보한다
         if top_score < CONF_THRESHOLD:
-            st.warning("⚠️ 규정에서 명확한 근거를 찾지 못했을 수 있습니다. 아래 원문과 대조해 확인하세요.")
+            st.warning(f"⚠️ 근거 부족 — 최고 유사도 {top_score:.2f} < 임계값 {CONF_THRESHOLD}. "
+                       f"아래 검색 결과를 직접 확인하세요.")
 
         st.markdown(text)
 
