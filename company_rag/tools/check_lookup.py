@@ -48,7 +48,7 @@ def check():
         top_c, top_s = hits[0]
         ok = top_c["article_no"] == want and top_s == EXACT_SCORE
         print(f"  {'✅' if ok else '❌'} {q!r} → 제{top_c['article_no']}조 "
-              f"({top_c['article_title']}), 점수 {top_s} ≥ 0.5 → 경고 안 뜸")
+              f"({top_c['article_title']}), 점수 {top_s} → 임계값과 무관하게 통과")
         results.append(ok)
 
     # 5) 의미 질문은 기존 벡터 경로 그대로 (회귀)

@@ -108,7 +108,7 @@
   <!-- confidence guard -->
   <rect x="46" y="500" width="196" height="78" class="card" style="fill:#ffebe9;stroke:#ff8182"/>
   <text x="144" y="524" class="t" text-anchor="middle" style="fill:#a40e26">신뢰도 가드</text>
-  <text x="144" y="544" class="s" text-anchor="middle" style="fill:#a40e26">최고 유사도 &lt; 0.5 이면</text>
+  <text x="144" y="544" class="s" text-anchor="middle" style="fill:#a40e26">최고 유사도 &lt; 0.55 이면</text>
   <text x="144" y="562" class="s" text-anchor="middle" style="fill:#a40e26">생성 건너뛰고 답변 유보</text>
   <path d="M 246 546 L 434 546" class="flow" stroke-dasharray="5 4" marker-end="url(#arw)"/>
 
