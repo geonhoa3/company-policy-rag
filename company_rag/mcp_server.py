@@ -19,7 +19,7 @@ from mcp.server.fastmcp import FastMCP
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.answer import CONF_THRESHOLD, NO_EVIDENCE
+from src.answer import CONF_THRESHOLD, MIN_SUPPORT, NO_EVIDENCE, SUPPORT_FLOOR, judge_evidence
 from src.leave import extract_hire_date, leave_days
 from src.store import EXACT_SCORE, load_index, search
 
@@ -71,9 +71,9 @@ def search_regulations(query: str, k: int = 3) -> dict:
     """
     chunks, vecs = _load()
     hits = search(query, chunks, vecs, k=k)
-    top = hits[0][1] if hits else 0.0
-    exact = top == EXACT_SCORE
-    has_evidence = exact or top >= CONF_THRESHOLD
+    verdict = judge_evidence(hits)
+    top, exact = verdict["top"], verdict["passed_by"] == "exact"
+    has_evidence = verdict["ok"]
 
     result = {
         "query": query,
@@ -84,9 +84,12 @@ def search_regulations(query: str, k: int = 3) -> dict:
     if not exact:
         result["top_similarity"] = round(float(top), 3)
         result["threshold"] = CONF_THRESHOLD
+        result["support_count"] = verdict["support"]      # SUPPORT_FLOOR 이상인 조항 수
+        result["passed_by"] = verdict["passed_by"]
     if not has_evidence:
         result["instruction"] = (
-            f"{NO_EVIDENCE} 최고 유사도 {top:.3f} 가 임계값 {CONF_THRESHOLD} 에 못 미친다. "
+            f"{NO_EVIDENCE} 최고 유사도 {top:.3f} 가 임계값 {CONF_THRESHOLD} 에 못 미치고, "
+            f"{SUPPORT_FLOOR} 이상인 조항도 {verdict['support']}개뿐이다(필요 {MIN_SUPPORT}개). "
             "위 조항들을 근거로 답을 만들지 말고, 규정에서 근거를 찾지 못했다고 답하라."
         )
     return result

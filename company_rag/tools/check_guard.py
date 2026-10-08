@@ -42,8 +42,11 @@ def check():
          lambda: A.answer_with_history("스톡옵션 언제 받아?", []), True, 0)
 
     print("\n[근거 충분 → 정상 생성]")
-    case("연차 며칠 쓸 수 있어? (유사도 0.66)",
+    case("연차 며칠 쓸 수 있어? (유사도 0.66, 강한 근거)",
          lambda: A.answer("연차 며칠 쓸 수 있어?"), False, 1)
+    # 범주형 질문: 1위가 임계값에 못 미쳐도 0.5 이상이 2개 모이면 통과해야 한다
+    case("휴가에는 어떤 종류가 있어? (1위 0.53, 보조 근거 2개)",
+         lambda: A.answer("휴가에는 어떤 종류가 있어?"), False, 1)
     case("제27조가 뭐야? (번호 조회, 정확 일치)",
          lambda: A.answer_with_history("제27조가 뭐야?", []), False, 1)
 

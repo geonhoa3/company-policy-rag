@@ -1,7 +1,7 @@
 # src/answer.py
 import os, ollama
 from datetime import date
-from src.store import load_index, search
+from src.store import EXACT_SCORE, load_index, search
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 INDEX_DIR = os.path.join(BASE, "..", "index")
@@ -25,9 +25,43 @@ CONF_THRESHOLD = 0.56
 NO_EVIDENCE = "규정에 없습니다. (근거 조항을 찾지 못해 답변을 생성하지 않았습니다)"
 
 
+# 단일 점수만 보면 '범주형 질문'을 거부하게 된다.
+# "휴가에는 어떤 종류가 있어?" 는 여러 조항에 걸쳐 있어 어느 하나와도 강하게
+# 맞지 않는다(1위 0.529). 그런데 규정 밖 질문과 점수가 겹쳐서, 임계값을
+# 아무리 조정해도 둘을 가를 수 없다.
+#
+# 대신 분포의 '모양'이 다르다 — 실측 28문항:
+#   범주형(규정 안)  : 0.5 이상인 청크가 2개 이상 (0.529, 0.522 ...)
+#   규정 밖          : 0.5 이상인 청크가 0개 (12문항 전부)
+# 그래서 "강한 근거 1개" 또는 "중간 근거 2개" 중 하나면 통과시킨다.
+SUPPORT_FLOOR = 0.50       # 이 점수 이상이면 '중간 근거' 1개로 센다
+MIN_SUPPORT = 2            # 중간 근거가 이만큼 모이면 통과
+
+
+def judge_evidence(hits) -> dict:
+    """근거가 충분한지 판정한다. app.py / mcp_server.py 가 공유한다.
+
+    passed_by: exact(번호 조회) | strong(강한 근거 1개) | support(중간 근거 2개) | None
+    """
+    top = float(hits[0][1]) if hits else 0.0
+    support = sum(1 for _, s in hits if s >= SUPPORT_FLOOR)
+
+    if hits and top == EXACT_SCORE:
+        passed_by = "exact"
+    elif top >= CONF_THRESHOLD:
+        passed_by = "strong"
+    elif support >= MIN_SUPPORT:
+        passed_by = "support"
+    else:
+        passed_by = None
+
+    return {"ok": passed_by is not None, "top": top,
+            "support": support, "passed_by": passed_by}
+
+
 def _withhold(hits) -> bool:
-    """최고 유사도가 임계값에 못 미치면 생성을 건너뛴다."""
-    return (hits[0][1] if hits else 0.0) < CONF_THRESHOLD
+    """근거가 부족하면 생성을 건너뛴다."""
+    return not judge_evidence(hits)["ok"]
 # temperature: 규정 QA는 같은 질문에 늘 같은 답이 나와야 한다 → 샘플링 끔
 # num_ctx  : Ollama 기본값은 4096이라 (모델 학습 길이 32768과 무관) 조항이 길면
 #            프롬프트가 잘린다. 잘리는 영역에 규정 컨텍스트와 [코드 계산 결과]가

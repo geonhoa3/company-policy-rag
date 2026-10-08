@@ -1,6 +1,6 @@
 # app.py — Streamlit 웹 UI (실행: streamlit run app.py)
 import streamlit as st
-from src.answer import answer_with_history, CONF_THRESHOLD
+from src.answer import answer_with_history, judge_evidence
 from src.leave import leave_days, extract_hire_date
 from src.audit import log_turn
 from src.store import EXACT_SCORE
@@ -48,11 +48,13 @@ if q := st.chat_input("예: 연차 며칠 쓸 수 있어?"):
         with st.spinner("규정 검색 중..."):
             text, hits, sq = answer_with_history(q, st.session_state.history, extra_context=turn_fact)
 
-        top_score = hits[0][1] if hits else 0.0
+        verdict = judge_evidence(hits)
+        top_score = verdict["top"]
 
         # 1) 신뢰도 가드 — 근거가 약하면 답을 '생성하지 않고' 유보한다
-        if top_score < CONF_THRESHOLD:
-            st.warning(f"⚠️ 근거 부족 — 최고 유사도 {top_score:.2f} < 임계값 {CONF_THRESHOLD}. "
+        if not verdict["ok"]:
+            st.warning(f"⚠️ 근거 부족 — 최고 유사도 {top_score:.2f}, "
+                       f"보조 근거 {verdict['support']}개. "
                        f"아래 검색 결과를 직접 확인하세요.")
 
         st.markdown(text)

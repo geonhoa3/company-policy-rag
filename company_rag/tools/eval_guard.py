@@ -26,6 +26,14 @@ QUESTIONS = [
     ("겸직해도 되나요?",                   True,  21),
     ("병가는 며칠까지 쓸 수 있어?",          True,  14),
     ("재택근무 신청은 며칠 전에 해야 해?",     True,  10),
+    # --- 범주형: 여러 조항에 걸쳐 어느 하나와도 강하게 맞지 않는 질문 ---
+    ("임금은 어떤 항목으로 구성돼?",          True,  15),
+    ("징계는 어떤 종류가 있어?",             True,  26),
+    ("어떤 경우에 휴직할 수 있어?",           True,  23),
+    ("채용 절차가 어떻게 돼?",               True,   4),
+    ("복무 중에 지켜야 할 게 뭐야?",          True,  18),
+    ("휴가에는 어떤 종류가 있어?",            True,  13),
+    # --- 조항 번호 직접 질문 (정규식 조회 경로) ---
     ("제3조가 뭐야?",                     True,   3),
     ("제27조가 뭐야?",                    True,  27),
     ("반려동물 동반출근 가능해?",            False, None),
@@ -36,6 +44,10 @@ QUESTIONS = [
     ("사내 헬스장 이용료 얼마야?",            False, None),
     ("자녀 학자금 지원되나요?",              False, None),
     ("스톡옵션 언제 받아?",                 False, None),
+    ("동호회 지원금 나오나요?",              False, None),
+    ("명절 선물 주나요?",                   False, None),
+    ("야유회 가나요?",                     False, None),
+    ("사내 카페 할인되나요?",               False, None),
 ]
 
 
@@ -43,7 +55,8 @@ def run():
     import numpy as np
     from src.store import load_index, lookup_by_article_no
     from src.embedder import embed_texts
-    from src.answer import answer_with_history, CONF_THRESHOLD, NO_EVIDENCE
+    from src.answer import (CONF_THRESHOLD, MIN_SUPPORT, NO_EVIDENCE,
+                            SUPPORT_FLOOR, answer_with_history, judge_evidence)
 
     chunks, vecs = load_index(os.path.join(BASE, "index"))
     rows = []
@@ -58,12 +71,16 @@ def run():
         sec = time.perf_counter() - t0
 
         refused = (text == NO_EVIDENCE)
+        verdict = judge_evidence(hits)
         rows.append(dict(
             q=q, inside=inside, want=want, vscore=vscore, routed=routed,
             refused=refused, sec=sec,
             cited=hits[0][0]["article_no"] if hits else None,
+            passed_by=verdict["passed_by"], support=verdict["support"],
             path=("정규식 조회" if routed else
-                  "임계값 미달 → 거부" if refused else "임계값 통과 → 생성"),
+                  "근거 부족 → 거부" if refused else
+                  "강한 근거 → 생성" if verdict["passed_by"] == "strong" else
+                  "보조 근거 → 생성"),
         ))
     return rows, CONF_THRESHOLD
 
@@ -117,7 +134,12 @@ def main():
           f"({s['t_gen']/s['t_ref']:.0f}배)")
     print(f"벡터점수 규정 안(내용) {s['in_lo']:.3f}~{s['in_hi']:.3f} / "
           f"규정 밖 {s['out_lo']:.3f}~{s['out_hi']:.3f}")
-    print(f"임계값 여유 — 밖 {s['thr']-s['out_hi']:+.3f} / 안 {s['in_lo']-s['thr']:+.3f}")
+    from collections import Counter
+    from src.answer import MIN_SUPPORT, SUPPORT_FLOOR
+    by = Counter(r["passed_by"] for r in rows if r["passed_by"])
+    print(f"통과 경로 — 강한 근거(top1>={s['thr']}) {by['strong']} / "
+          f"보조 근거({SUPPORT_FLOOR} 이상 {MIN_SUPPORT}개) {by['support']} / "
+          f"번호 조회 {by['exact']}")
     for r in s["false_refuse"]:
         print("  [오거부]", r["q"], f"{r['vscore']:.3f}")
     for r in s["false_answer"]:
