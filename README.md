@@ -212,6 +212,11 @@ Claude Desktop 같은 호스트가 규정봇을 도구로 호출할 수 있습�
 ```
 
 도구 설명문과 `instruction` 필드가 **호스트 LLM에게는 프롬프트 역할**을 합니다.
+
+MCP Inspector로 실제 연결해 `"사내 헬스장 이용료 얼마야?"`(규정 밖)를 호출한 화면입니다.
+`has_evidence: false`, `support_count: 0`, `passed_by: null`과 함께 호스트용 지시문이 내려갑니다.
+
+![MCP 서버 도구 호출](docs/screenshot-mcp.png)
 app.py가 생성을 차단하는 것과 같은 일을, MCP 경계 너머에서 하는 셈입니다.
 
 ```bash
