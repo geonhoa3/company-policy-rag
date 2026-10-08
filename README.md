@@ -174,6 +174,58 @@ RAG의 실패는 "검색이 엉뚱한 걸 물어왔는데 LLM이 자신 있게 �
 
 ---
 
+### 6. MCP 서버 — 같은 코어의 세 번째 표면
+
+Streamlit UI, CLI에 이어 **MCP(Model Context Protocol) 서버**로도 노출합니다.
+Claude Desktop 같은 호스트가 규정봇을 도구로 호출할 수 있습니다.
+
+핵심 판단은 **서버가 LLM을 호출하지 않는다**는 것입니다. MCP 호스트는 이미 LLM이라,
+여기서 Ollama를 또 부르면 LLM이 이중으로 겹칩니다 — 느려지고 작은 모델이 큰 모델의 답을 깎아냅니다.
+그래서 **검색·조회·계산만 도구로 주고 생성은 호스트에 맡깁니다.**
+
+| 도구 | 역할 |
+|---|---|
+| `search_regulations(query, k)` | 조항 검색 (번호 질문은 정규식 조회로 자동 분기) |
+| `get_article(article_no)` | 조항 번호로 조문 직접 조회 |
+| `calculate_leave(hire_date, as_of)` | 연차 일수 계산 — LLM에 맡기지 않는 부분 |
+
+리소스로는 `regulation://articles`(조항 목록)와 `regulation://article/{N}`(조문 원문)을 노출합니다.
+
+**그럼 신뢰도 가드는?** 서버가 답을 만들지 않으니 생성을 막을 데가 없습니다.
+대신 **가드 판정을 응답에 실어 보냅니다.**
+
+```json
+{
+  "has_evidence": false,
+  "top_similarity": 0.396,
+  "threshold": 0.56,
+  "instruction": "규정에 없습니다. ... 위 조항들을 근거로 답을 만들지 말고,
+                  규정에서 근거를 찾지 못했다고 답하라."
+}
+```
+
+도구 설명문과 `instruction` 필드가 **호스트 LLM에게는 프롬프트 역할**을 합니다.
+app.py가 생성을 차단하는 것과 같은 일을, MCP 경계 너머에서 하는 셈입니다.
+
+```bash
+python mcp_server.py
+```
+
+Claude Desktop에 등록하려면 `claude_desktop_config.json`에:
+
+```json
+{
+  "mcpServers": {
+    "company-policy-rag": {
+      "command": "python",
+      "args": ["<절대경로>/company_rag/mcp_server.py"]
+    }
+  }
+}
+```
+
+---
+
 ## 질의 흐름
 
 ```mermaid
@@ -210,6 +262,7 @@ sequenceDiagram
 company_rag/
 ├── app.py              # Streamlit 웹 UI (신뢰도 경고 · 근거 펼치기 · 연차 사이드바)
 ├── ask.py              # CLI 챗봇
+├── mcp_server.py       # MCP 서버 (도구 3종 + 리소스 2종)
 ├── build_index.py      # 색인 생성 파이프라인
 ├── requirements.txt
 ├── data/               # 취업규칙 샘플 DOCX (v1: 문단만 / v2: 표 포함)
@@ -222,7 +275,7 @@ company_rag/
 │   ├── answer.py       # 신뢰도 가드 + 프롬프트 조립 + Ollama 호출 + 질문 재작성
 │   ├── leave.py        # 연차 계산 (LLM 산수 대체) + 입사일 추출
 │   └── audit.py        # 감사 로그 (JSONL)
-└── tools/              # 단계별 자가 검증 12종 + 평가 스크립트
+└── tools/              # 단계별 자가 검증 13종 + 평가 스크립트
 ```
 
 ---
@@ -275,6 +328,7 @@ python ask.py
 | `check_search.py` | 검색 정확도 | 임베더 |
 | `check_lookup.py` | 조항 번호 조회 라우팅 | 임베더 |
 | `check_guard.py` | 근거 부족 시 생성 차단 | 임베더 |
+| `check_mcp.py` | MCP 도구·리소스 (stdio 실제 연결) | 임베더 |
 | `eval_guard.py` | **평가** — 오거부·오답변 측정 | 임베더+Ollama |
 | `check_answer.py` | 답변 사실성·출처 표기 | Ollama |
 | `check_chat.py` | 질문 재작성·대화 이력 | Ollama |
@@ -315,4 +369,4 @@ python tools/eval_guard.py
 
 ## 기술 스택
 
-`Python` · `Streamlit` · `Ollama (qwen2.5:7b)` · `sentence-transformers (BAAI/bge-m3)` · `NumPy` · `python-docx`
+`Python` · `Streamlit` · `Ollama (qwen2.5:7b)` · `sentence-transformers (BAAI/bge-m3)` · `NumPy` · `python-docx` · `MCP`
