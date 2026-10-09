@@ -39,13 +39,14 @@ def _load():
     return _cache
 
 
-def _fmt(chunk: dict, score: float) -> dict:
+def _fmt(chunk: dict, score: float, include_text: bool = True) -> dict:
     out = {
         "article_no": chunk["article_no"],
         "article_title": chunk["article_title"],
         "chapter": chunk["chapter"],
-        "text": chunk["text"],
     }
+    if include_text:
+        out["text"] = chunk["text"]
     if score == EXACT_SCORE:
         out["match"] = "exact"          # 번호로 직접 찾음 — 유사도가 아니다
     else:
@@ -62,8 +63,8 @@ def search_regulations(query: str, k: int = 3) -> dict:
     질문에 "제N조"가 있으면 벡터 검색 대신 해당 조항을 직접 조회한다
     (번호 질문은 비교할 의미가 적어 유사도가 낮게 나오기 때문).
 
-    has_evidence 가 false 면 근거를 찾지 못한 것이다. 이때는 반환된 조항을
-    근거로 답을 지어내지 말고, 규정에 없다고 사용자에게 알려야 한다.
+    has_evidence 가 false 면 근거를 찾지 못한 것이다. 이때는 조문 본문(text)이
+    응답에서 빠지고 조 번호·제목·유사도만 남는다. 규정에 없다고 알려야 한다.
 
     Args:
         query: 사용자 질문 (예: "연차 며칠 쓸 수 있어?", "제27조가 뭐야?")
@@ -75,11 +76,17 @@ def search_regulations(query: str, k: int = 3) -> dict:
     top, exact = verdict["top"], verdict["passed_by"] == "exact"
     has_evidence = verdict["ok"]
 
+    # 근거가 부족하면 조문 본문을 빼고 내보낸다.
+    # app.py 는 이 경우 LLM 을 아예 호출하지 않아 모델이 조문을 보지 못한다.
+    # 그런데 MCP 는 호스트가 LLM 이라 '보내지 않는 것'이 유일한 차단 수단이다.
+    # 본문을 주면서 "쓰지 마라"고 부탁하는 건, 이 프로젝트가 피하려던 바로 그 패턴이다
+    # (프롬프트가 모순됐을 때 모델이 지시를 5회 중 3회 무시한 실측이 있다).
+    # 조 번호·제목·유사도는 남겨서 "무엇을 찾아봤는지"는 투명하게 보여준다.
     result = {
         "query": query,
         "matched_by": "article_number" if exact else "vector_search",
         "has_evidence": has_evidence,
-        "articles": [_fmt(c, s) for c, s in hits],
+        "articles": [_fmt(c, s, include_text=has_evidence) for c, s in hits],
     }
     if not exact:
         result["top_similarity"] = round(float(top), 3)
@@ -90,7 +97,8 @@ def search_regulations(query: str, k: int = 3) -> dict:
         result["instruction"] = (
             f"{NO_EVIDENCE} 최고 유사도 {top:.3f} 가 임계값 {CONF_THRESHOLD} 에 못 미치고, "
             f"{SUPPORT_FLOOR} 이상인 조항도 {verdict['support']}개뿐이다(필요 {MIN_SUPPORT}개). "
-            "위 조항들을 근거로 답을 만들지 말고, 규정에서 근거를 찾지 못했다고 답하라."
+            "그래서 조문 본문(text)은 응답에서 제외했다. 규정에서 근거를 찾지 못했다고 "
+            "사용자에게 알려라. 조문이 꼭 필요하면 get_article 로 조 번호를 직접 지정해 조회하라."
         )
     return result
 

@@ -63,6 +63,19 @@ async def main():
             mark(r["has_evidence"] is False and "instruction" in r,
                  "has_evidence=false + 호스트용 지시문 포함",
                  r.get("instruction", "")[:70] + "...")
+            # 본문을 주면서 "쓰지 마라"고 하면 모델이 무시할 수 있다 → 아예 안 보낸다
+            no_body = all("text" not in a for a in r["articles"])
+            has_meta = all({"article_no", "article_title"} <= set(a) for a in r["articles"])
+            mark(no_body and has_meta,
+                 "조문 본문은 제외하고 조 번호·제목만 남김",
+                 f"조항 {len(r['articles'])}개, 키: {sorted(r['articles'][0])}")
+
+            print("\n[검색 — 근거 있음 → 본문 포함]")
+            r = payload(await s.call_tool("search_regulations",
+                                          {"query": "연차 며칠 쓸 수 있어?"}))
+            mark(all("text" in a for a in r["articles"]),
+                 "근거가 충분할 때는 본문이 그대로 실림",
+                 f"제{r['articles'][0]['article_no']}조 {len(r['articles'][0]['text'])}자")
 
             print("\n[검색 — 번호 질문은 정규식 조회로]")
             r = payload(await s.call_tool("search_regulations",
