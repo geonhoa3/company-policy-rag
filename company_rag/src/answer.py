@@ -33,15 +33,15 @@ NO_EVIDENCE = "규정에 없습니다. (근거 조항을 찾지 못해 답변을
 # 대신 분포의 '모양'이 다르다 — 실측 28문항:
 #   범주형(규정 안)  : 0.5 이상인 청크가 2개 이상 (0.529, 0.522 ...)
 #   규정 밖          : 0.5 이상인 청크가 0개 (12문항 전부)
-# 그래서 "강한 근거 1개" 또는 "중간 근거 2개" 중 하나면 통과시킨다.
-SUPPORT_FLOOR = 0.50       # 이 점수 이상이면 '중간 근거' 1개로 센다
-MIN_SUPPORT = 2            # 중간 근거가 이만큼 모이면 통과
+# 그래서 "강한 근거 1개" 또는 "보조 근거 2개" 중 하나면 통과시킨다.
+SUPPORT_FLOOR = 0.50       # 이 점수 이상이면 '보조 근거' 1개로 센다
+MIN_SUPPORT = 2            # 보조 근거가 이만큼 모이면 통과
 
 
 def judge_evidence(hits) -> dict:
     """근거가 충분한지 판정한다. app.py / mcp_server.py 가 공유한다.
 
-    passed_by: exact(번호 조회) | strong(강한 근거 1개) | support(중간 근거 2개) | None
+    passed_by: exact(번호 조회) | strong(강한 근거 1개) | support(보조 근거 2개) | None
     """
     top = float(hits[0][1]) if hits else 0.0
     support = sum(1 for _, s in hits if s >= SUPPORT_FLOOR)
