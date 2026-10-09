@@ -51,7 +51,25 @@ QUESTIONS = [
 ]
 
 
-def run():
+# 규칙 설계(임계값 0.56 / 보조 근거 0.50·2개)에 **전혀 쓰지 않은** 검증용 10문항.
+# 위 QUESTIONS 로 파라미터를 고른 뒤 단 한 번 측정해, 과적합 여부를 본다.
+# 여기 결과를 보고 파라미터를 다시 만지면 홀드아웃의 의미가 사라진다.
+HOLDOUT = [
+    # 범주형 5 — 여러 조항에 걸친 넓은 질문
+    ("근로시간과 휴게는 어떻게 정해져 있어?",   True,   7),
+    ("인사 관련 규정에는 뭐가 있어?",          True,  22),
+    ("임금 지급은 어떤 규칙을 따라?",          True,  16),
+    ("안전보건에 대한 회사와 직원 의무가 뭐야?", True,  29),
+    ("수습 기간에는 어떤 조건이 적용돼?",       True,   5),
+    # 규정 밖 5 — 문서에 없는 복리후생
+    ("어학연수 지원해주나요?",                False, None),
+    ("사내 어린이집 있나요?",                 False, None),
+    ("노트북 개인 지급되나요?",               False, None),
+    ("자기계발비 지원되나요?",                False, None),
+    ("주택자금 대출 해주나요?",               False, None),
+]
+
+def run(questions=QUESTIONS):
     import numpy as np
     from src.store import load_index, lookup_by_article_no
     from src.embedder import embed_texts
@@ -60,7 +78,7 @@ def run():
 
     chunks, vecs = load_index(os.path.join(BASE, "index"))
     rows = []
-    for q, inside, want in QUESTIONS:
+    for q, inside, want in questions:
         # 라우팅과 무관한 '순수 벡터 점수' — 번호 질문이 왜 임계값으로는
         # 구제되지 않는지 보여주기 위해 따로 잰다
         vscore = float(np.max(vecs @ embed_texts([q])[0]))
@@ -108,7 +126,10 @@ def summarize(rows, thr):
 
 def main():
     md = "--md" in sys.argv
-    rows, thr = run()
+    hold = "--holdout" in sys.argv
+    rows, thr = run(HOLDOUT if hold else QUESTIONS)
+    if hold:
+        print("※ 홀드아웃 10문항 — 규칙 설계에 쓰지 않은 질문\n")
     s = summarize(rows, thr)
 
     if md:

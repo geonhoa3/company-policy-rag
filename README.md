@@ -353,6 +353,7 @@ python tools/check_leave.py
 
 기능 검증과 별도로, **가드가 옳은지**는 라벨링된 30문항으로 따로 측정합니다.
 결과는 [docs/evaluation.md](docs/evaluation.md) — **오거부 0 / 오답변 0 / 근거 조항 적중 18/18** (30문항).
+규칙 설계에 쓰지 않은 **홀드아웃 10문항**에서도 오거부·오답변 0 입니다 (`python tools/eval_guard.py --holdout`).
 (적중은 1순위 검색 조항이 기대 조항과 일치했다는 뜻이고, 답변 내용 정확성은 `check_answer.py`가 따로 봅니다.)
 
 ```bash
