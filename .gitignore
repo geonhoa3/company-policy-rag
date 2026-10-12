@@ -22,3 +22,6 @@ logs/
 # OS
 Thumbs.db
 .DS_Store
+
+# 음성 평가 녹음 — 본인 목소리이고 재생성 가능하므로 공개 저장소에 올리지 않는다
+company_rag/voice/recordings/
