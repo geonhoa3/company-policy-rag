@@ -99,6 +99,9 @@ def main():
     print(f"마이크: {sd.query_devices(kind='input')['name']}")
     print(f"{SR}Hz 모노 / 저장 위치 {OUT_DIR}")
     print(f"녹음할 질문 {len(todo)}개\n")
+    # 읽는 방식이 중간에 바뀌면 번호 인식률이 STT 성능이 아니라 발화 차이를 재게 된다
+    print("  읽는 방법: '제27조' → \"제이십칠조\" 처럼 자연스럽게. 숫자를 끊어 읽지 않습니다.")
+    print("  68개 내내 같은 방식, 마이크와 거리도 일정하게 유지하세요.\n")
 
     for n, (qid, text) in enumerate(todo, 1):
         while True:
