@@ -255,6 +255,43 @@ Claude Desktop에 등록하려면 `claude_desktop_config.json`에:
 
 ---
 
+### 7. 음성 질의 확장 (STT)
+
+음성 질문을 받아 같은 파이프라인에 연결하고, **구간이 느려지거나 멈춰도 정해진 시간 안에
+안전한 응답**을 돌려줍니다. STT 도 로컬에서 돕니다 — 외부 API 를 쓰면 "사내 문서가
+밖으로 나가지 않는다"는 제약이 깨집니다.
+
+```
+음성(wav) → faster-whisper → 숫자 정규화 → 검색 → 가드 → 생성(데드라인)
+```
+
+| 지표 | 결과 | 목표 |
+|---|---:|---:|
+| 근거 없는 답변 (최종 응답) | **0건** | 0건 ✅ |
+| STT CER | **3.8%** | ≤10% ✅ |
+| 텍스트와 판정 일치 | **38/40** | ≥38/40 ✅ |
+| 첫 요청 (워밍업 후) | **5.18초 → 0.79초** | ✅ |
+| 장애 주입 대체 응답 | **4/4** | 4/4 ✅ |
+| 조항 번호 인식률 | 13/15 | ≥14/15 ❌ |
+
+**핵심 설계:** LLM 이 2초 안에 답하지 못하면 **부분 답변을 버리고 근거 조항 원문**을
+돌려줍니다. 중간에 잘린 답은 틀린 답이 될 수 있어, `근거 없으면 답하지 않는다` 를
+**시간 축으로 확장**한 것입니다.
+
+워밍업으로 첫 요청이 5.18초에서 0.79초로 줄었지만, **서버 시작이 +5.3초 느려지고
+VRAM 11GB 를 상시 점유**합니다. 비용을 없앤 게 아니라 옮긴 것이라 둘을 함께 적습니다.
+
+설계·측정·한계 전문은 [docs/stt-plan.md](docs/stt-plan.md).
+
+```bash
+python voice/record.py          # 평가셋 녹음
+python voice/run_eval.py --prompt   # 40+20문항 평가
+python voice/fault_injection.py     # 장애 주입 4종
+python voice/api.py                 # FastAPI (POST /ask-voice)
+```
+
+---
+
 ## 질의 흐름
 
 ```mermaid
@@ -292,6 +329,7 @@ company_rag/
 ├── app.py              # Streamlit 웹 UI (신뢰도 경고 · 근거 펼치기 · 연차 사이드바)
 ├── ask.py              # CLI 챗봇
 ├── mcp_server.py       # MCP 서버 (도구 3종 + 리소스 2종)
+├── voice/              # 음성 질의 확장 (STT · 데드라인 · FastAPI)
 ├── build_index.py      # 색인 생성 파이프라인
 ├── requirements.txt
 ├── data/               # 취업규칙 샘플 DOCX (v1: 문단만 / v2: 표 포함)
@@ -399,4 +437,4 @@ python tools/eval_guard.py
 
 ## 기술 스택
 
-`Python` · `Streamlit` · `Ollama (qwen2.5:7b)` · `sentence-transformers (BAAI/bge-m3)` · `NumPy` · `python-docx` · `MCP`
+`Python` · `Streamlit` · `FastAPI` · `Ollama (qwen2.5:7b)` · `faster-whisper` · `sentence-transformers (BAAI/bge-m3)` · `NumPy` · `python-docx` · `MCP`
