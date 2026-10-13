@@ -54,8 +54,12 @@ class STTResult:
 
 class STT:
     def __init__(self, size: str = "small", device: str = "cuda",
-                 compute_type: str = "float16"):
+                 compute_type: str = "float16", initial_prompt: str = None):
         self.size, self.device = size, device
+        # initial_prompt: 디코딩을 규정 어휘 쪽으로 기울인다.
+        # 용어는 평가 질문이 아니라 규정 문서의 조항 제목에서 뽑는다
+        # (질문에서 뽑으면 정답을 미리 알려주는 셈이 된다).
+        self.initial_prompt = initial_prompt
         self.model = WhisperModel(size, device=device, compute_type=compute_type)
 
     def warmup(self, wav_path: str) -> None:
@@ -64,7 +68,9 @@ class STT:
 
     def transcribe(self, wav_path: str) -> STTResult:
         t0 = time.perf_counter()
-        segments, info = self.model.transcribe(wav_path, language="ko", beam_size=5)
+        segments, info = self.model.transcribe(
+            wav_path, language="ko", beam_size=5,
+            initial_prompt=self.initial_prompt)
         segs = list(segments)                      # 제너레이터라 여기서 실제 연산이 돈다
         stt_ms = (time.perf_counter() - t0) * 1000
 
