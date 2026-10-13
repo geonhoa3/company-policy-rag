@@ -123,14 +123,19 @@ def report(rows, nrows):
     print("=" * 78)
     print("eval 40문항 — 음성 입력 vs 텍스트 입력\n")
 
-    mismatch = [r for r in rows if r["voice_ok"] != r["text_ok"]]
+    # 주 지표는 사전 정의대로 '가드 판정' 기준이다.
+    # 최종 응답 기준은 보조로 함께 본다 — 가드를 통과한 뒤 LLM 이 거부한 건이
+    # 최종 기준에서는 일치로 잡히기 때문에, 정의를 바꾸면 지표가 느슨해진다.
+    mismatch = [r for r in rows if r["guard_passed"] != r["text_ok"]]
+    mismatch_final = [r for r in rows if r["voice_ok"] != r["text_ok"]]
     false_refuse = [r for r in rows if r["inside"] and not r["voice_ok"]]
     false_answer = [r for r in rows if not r["inside"] and r["voice_ok"]]
     inside_ans = [r for r in rows if r["inside"] and r["voice_ok"]]
     cite_ok = [r for r in inside_ans if r["cited"] == r["want"]]
 
     print(f"  CER (정규화 전 원본)        {corpus_cer([(r['question'], r['stt_raw']) for r in rows]):.1%}")
-    print(f"  텍스트와 같은 판정          {pct(len(rows)-len(mismatch), len(rows))}")
+    print(f"  판정 일치 (가드 기준, 주)   {pct(len(rows)-len(mismatch), len(rows))}")
+    print(f"  판정 일치 (최종 응답, 보조) {pct(len(rows)-len(mismatch_final), len(rows))}")
     guard_bypass = [r for r in rows if not r["inside"] and r["guard_passed"]]
     print(f"  가드 통과 (규정 밖)         {len(guard_bypass)}건")
     print(f"  근거 없는 답변 (최종)       {len(false_answer)}건   ← 사용자에게 나간 답")
