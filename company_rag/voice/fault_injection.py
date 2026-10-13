@@ -101,14 +101,14 @@ def run():
     finally:
         os.remove(quiet)
 
-    # 5) LLM 서버 다운 — 닿지 않는 주소로 보낸다.
+    # 5) LLM 연결 실패 — 서버를 내리는 대신 닿지 않는 주소로 보낸다.
     #    Ollama Desktop 은 프로세스를 죽여도 자동 재시작해서, 실제로 내리면
     #    '다운'이 아니라 '모델 재적재 중인 느린 서버'가 된다. 그러면 장애와 지연을
     #    구분할 수 없다. 연결 거부는 다운 상태가 만드는 것과 같은 조건이고 재현도 된다.
     def _dead_client(timeout=None):
         return orig_client(host="http://127.0.0.1:1", timeout=timeout)
     pipeline.ollama.Client = _dead_client
-    record("LLM 서버 다운 (연결 거부)", "llm",
+    record("LLM 연결 실패 (닿지 않는 주소)", "llm",
            lambda: answer_voice(base_stt, chunks, vecs), "llm_error")
     pipeline.ollama.Client = orig_client
     # ---- 요약 ----
