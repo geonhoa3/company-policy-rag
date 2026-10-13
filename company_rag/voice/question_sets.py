@@ -47,6 +47,17 @@ NUMBER = [
     ("num15", "제31조는 어떤 내용이야?"),
 ]
 
+# --- 2-1) 신규 번호 5문항: 주/초 정규화를 '설계에 쓰지 않은' 질문으로 검증 -------
+# 위 NUMBER 15문항은 정규화 규칙을 만들 때 본 데이터라, 거기서만 좋아지면
+# 그 15개에 맞춘 것일 수 있다. 설계 세트에 없는 조 번호로만 구성한다.
+NUMBER_NEW = [
+    ("new01", "제6조가 뭐야?"),
+    ("new02", "제13조 내용 알려줘"),
+    ("new03", "제18조는 어떤 내용이야?"),
+    ("new04", "제23조가 뭐야?"),
+    ("new05", "제28조 내용 알려줘"),
+]
+
 # --- 3) 모델 선택용 10문항: 평가셋과 겹치지 않는 질문 -------------------------
 PICK = [
     ("pick01", "지각하면 어떻게 되나요?"),
@@ -69,8 +80,9 @@ OBSERVE = [
     ("obs03", "3조 2교대 근무는 어떻게 돼?"),
 ]
 
-SETS = {"eval": EVAL, "number": NUMBER, "pick": PICK, "observe": OBSERVE}
-ALL = EVAL + NUMBER + PICK + OBSERVE
+SETS = {"eval": EVAL, "number": NUMBER, "number_new": NUMBER_NEW,
+        "pick": PICK, "observe": OBSERVE}
+ALL = EVAL + NUMBER + NUMBER_NEW + PICK + OBSERVE
 
 
 if __name__ == "__main__":

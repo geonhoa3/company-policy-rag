@@ -33,7 +33,7 @@ _enable_cuda_dlls()
 from faster_whisper import WhisperModel  # noqa: E402  (DLL 등록 뒤에 import 해야 함)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from normalize import normalize_article_numbers  # noqa: E402
+from normalize import normalize_stt  # noqa: E402
 
 
 @dataclass
@@ -77,7 +77,7 @@ class STT:
         raw = "".join(s.text for s in segs).strip()
 
         t1 = time.perf_counter()
-        text = normalize_article_numbers(raw)
+        text = normalize_stt(raw)
         normalize_ms = (time.perf_counter() - t1) * 1000
 
         n = len(segs)

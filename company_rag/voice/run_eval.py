@@ -65,7 +65,11 @@ def main():
         t0 = time.perf_counter()
         text, _, _ = answer_with_history(r.text, [])
         llm_ms = (time.perf_counter() - t0) * 1000
-        refused = text == NO_EVIDENCE
+        # 가드가 막은 것과 LLM 이 스스로 "규정에 없다"고 답한 것을 구분한다.
+        # 둘 다 사용자에게는 거부로 보이지만, 안전장치가 어디서 작동했는지가 다르다.
+        guard_blocked = text == NO_EVIDENCE
+        llm_refused = (not guard_blocked) and ("규정에 없" in text)
+        refused = guard_blocked or llm_refused
 
         txt_ok, txt_cited = run_text(question, chunks, vecs)
         inside, want = LABELS[question]
@@ -74,6 +78,7 @@ def main():
             qid=qid, question=question, stt_raw=r.text_raw, stt=r.text,
             cer=cer(question, r.text_raw), inside=inside, want=want,
             voice_ok=not refused, text_ok=txt_ok,
+            guard_passed=not guard_blocked, llm_refused=llm_refused, answer=text,
             cited=hits[0][0]["article_no"] if hits else None, text_cited=txt_cited,
             audio_sec=r.audio_sec, stt_ms=r.stt_ms, normalize_ms=r.normalize_ms,
             retrieval_ms=retrieval_ms, guard_ms=guard_ms, llm_ms=llm_ms,
@@ -120,7 +125,13 @@ def report(rows, nrows):
 
     print(f"  CER (정규화 전 원본)        {corpus_cer([(r['question'], r['stt_raw']) for r in rows]):.1%}")
     print(f"  텍스트와 같은 판정          {pct(len(rows)-len(mismatch), len(rows))}")
-    print(f"  근거 없는 답변 (규정 밖)    {len(false_answer)}건")
+    guard_bypass = [r for r in rows if not r["inside"] and r["guard_passed"]]
+    print(f"  가드 통과 (규정 밖)         {len(guard_bypass)}건")
+    print(f"  근거 없는 답변 (최종)       {len(false_answer)}건   ← 사용자에게 나간 답")
+    for r in guard_bypass:
+        where = "LLM 이 거부" if r["llm_refused"] else "⚠️ 답변 생성됨"
+        print(f"      {r['qid']}  가드 통과 → {where}")
+        print(f"         답변: {r['answer'].strip()[:60]}")
     print(f"  오거부 (규정 안)            {len(false_refuse)}건")
     print(f"  근거 조항 적중              {pct(len(cite_ok), len(inside_ans))}")
 
