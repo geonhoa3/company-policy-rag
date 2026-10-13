@@ -53,10 +53,19 @@ class VoiceResult:
         return self.fallback is not None
 
 
-def _evidence_text(hits) -> str:
-    """생성 대신 돌려줄 근거 조항 원문."""
+DELAYED_LEAD = "답변 생성이 지연되어 근거 조항 원문을 먼저 안내드립니다."
+UNAVAILABLE_LEAD = "답변 생성을 할 수 없어 근거 조항 원문을 안내드립니다."
+
+
+def _evidence_text(hits, lead: str = DELAYED_LEAD) -> str:
+    """생성 대신 돌려줄 근거 조항 원문.
+
+    머리말을 경로별로 나눈다. 연결 실패에 "지연되어" 라고 하면 기다리면 답이
+    온다는 뜻이 되고, "먼저" 는 뒤에 생성 답변이 따라온다는 뜻이 된다. 둘 다
+    사실이 아니다.
+    """
     body = "\n\n".join(c["text"] for c, _ in hits)
-    return f"답변 생성이 지연되어 근거 조항 원문을 먼저 안내드립니다.\n\n{body}"
+    return f"{lead}\n\n{body}"
 
 
 class LLMDown(Exception):
@@ -152,7 +161,8 @@ def answer_voice(stt_result, chunks, vecs, k: int = 3,
         text, ttft, elapsed = _stream_with_deadline(messages, b["llm"])
     except LLMDown:
         t["llm"] = (time.perf_counter() - t0) * 1000
-        return VoiceResult(answer=_evidence_text(hits), fallback="llm_error",
+        return VoiceResult(answer=_evidence_text(hits, UNAVAILABLE_LEAD),
+                           fallback="llm_error",
                            has_evidence=True, passed_by=v["passed_by"],
                            hits=hits, timings=t)
 
