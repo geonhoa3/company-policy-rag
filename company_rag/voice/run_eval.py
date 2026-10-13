@@ -20,7 +20,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
 from metrics import cer, corpus_cer
 from normalize import normalize_article_numbers
-from question_sets import EVAL, NUMBER
+from question_sets import EVAL, NUMBER, NUMBER_NEW
 from stt import STT
 from vocab import initial_prompt
 
@@ -86,20 +86,26 @@ def main():
             rtf=r.rtf, passed_by=v["passed_by"],
         ))
 
-    # ---------- number 15문항 ----------
+    # ---------- 번호 세트: 설계 15 + 신규 5 ----------
+    # 설계 세트는 정규화 규칙을 만들 때 본 데이터다. 거기서만 좋아지면
+    # 그 15개에 맞춘 것일 수 있어, 규칙 설계에 쓰지 않은 5문항으로 따로 본다.
     nrows = []
-    for qid, question in NUMBER:
-        r = stt.transcribe(os.path.join(D, f"{qid}.wav"))
-        want_no = int(ARTICLE_Q_RE.search(question).group(1))
+    for setname, items in (("설계", NUMBER), ("신규", NUMBER_NEW)):
+        for qid, question in items:
+            if not os.path.exists(os.path.join(D, f"{qid}.wav")):
+                continue
+            r = stt.transcribe(os.path.join(D, f"{qid}.wav"))
+            want_no = int(ARTICLE_Q_RE.search(question).group(1))
 
-        def got_no(t):
-            m = ARTICLE_Q_RE.search(t)
-            return int(m.group(1)) if m else None
+            def got_no(t):
+                m = ARTICLE_Q_RE.search(t)
+                return int(m.group(1)) if m else None
 
-        nrows.append(dict(qid=qid, question=question, raw=r.text_raw, norm=r.text,
-                          want=want_no, before=got_no(r.text_raw), after=got_no(r.text),
-                          routed=lookup_by_article_no(r.text, chunks) is not None,
-                          cer=cer(question, r.text_raw), rtf=r.rtf))
+            nrows.append(dict(setname=setname, qid=qid, question=question,
+                              raw=r.text_raw, norm=r.text, want=want_no,
+                              before=got_no(r.text_raw), after=got_no(r.text),
+                              routed=lookup_by_article_no(r.text, chunks) is not None,
+                              cer=cer(question, r.text_raw), rtf=r.rtf))
 
     report(rows, nrows)
     suffix = "_prompt" if use_prompt else ""
@@ -151,26 +157,31 @@ def report(rows, nrows):
             print(f"       인식 {r['stt_raw']}")
 
     print("\n" + "=" * 78)
-    print("number 15문항 — 조항 번호 인식률\n")
+    print("조항 번호 인식률 — 설계 세트 / 신규 세트\n")
+    print(f"  {'세트':<6}{'정규화 전':>11}{'정규화 후':>11}{'CER':>9}")
+    for setname in ("설계", "신규"):
+        g = [r for r in nrows if r["setname"] == setname]
+        if not g:
+            continue
+        b = sum(1 for r in g if r["before"] == r["want"])
+        a = sum(1 for r in g if r["after"] == r["want"])
+        print(f"  {setname:<6}{b:>7}/{len(g):<4}{a:>7}/{len(g):<4}"
+              f"{corpus_cer([(r['question'], r['raw']) for r in g]):>8.1%}")
     before = sum(1 for r in nrows if r["before"] == r["want"])
     after = sum(1 for r in nrows if r["after"] == r["want"])
-    routed = sum(1 for r in nrows if r["routed"])
-    print(f"  정규화 전   {pct(before, len(nrows))}")
-    print(f"  정규화 후   {pct(after, len(nrows))}   ← 목표 14/15")
-    print(f"  정규식 조회 경로 진입   {pct(routed, len(nrows))}")
-    print(f"  CER        {corpus_cer([(r['question'], r['raw']) for r in nrows]):.1%}")
+    print(f"  {'합계':<6}{before:>7}/{len(nrows):<4}{after:>7}/{len(nrows):<4}")
 
     bad = [r for r in nrows if r["after"] != r["want"]]
     if bad:
         print("\n  [번호를 놓친 문항]")
         for r in bad:
-            print(f"    {r['qid']}  기대 제{r['want']}조 → {r['after']}")
+            print(f"    [{r['setname']}] {r['qid']}  기대 제{r['want']}조 → {r['after']}")
             print(f"       인식 {r['raw']}" + (f"  → 정규화 {r['norm']}" if r['norm'] != r['raw'] else ""))
     fixed = [r for r in nrows if r["before"] != r["want"] and r["after"] == r["want"]]
     if fixed:
         print("\n  [정규화가 살린 문항]")
         for r in fixed:
-            print(f"    {r['qid']}  {r['raw']} → {r['norm']}")
+            print(f"    [{r['setname']}] {r['qid']}  {r['raw']} → {r['norm']}")
 
     print("\n" + "=" * 78)
     print("구간별 지연 (eval 40문항, 밀리초)\n")
